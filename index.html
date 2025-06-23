@@ -327,45 +327,64 @@
                     alert('スープの名前と値段を入力してください！');
                     return;
                 }
-                soupMenu[1] = { name, price };
+                soupMenu.push({ name, price });
             }
 
             if (parseInt(document.getElementById('side-dish').value) === 1) {
-                const sideNum = parseInt(document.getElementById('side-num').value) || 0;
-                for (let i = 1; i <= sideNum; i++) {
+                const subNum = parseInt(document.getElementById('side-num').value) || 0;
+                for (let i = 1; i <= subNum; i++) {
                     const name = document.getElementById(`side-name-${i}`).value;
                     const price = parseInt(document.getElementById(`side-price-${i}`).value) || 0;
                     if (!name || !price) {
                         alert(`小鉢${i}の名前と値段を入力してください！`);
                         return;
                     }
-                    subMenu[i] = { name, price };
+                    subMenu.push({ name, price });
                 }
             }
 
-            let bestPrice = -1;
-            let best = [];
-            for (let i = 0; i < mainMenu.length; i++) {
-                for (let j = 0; j < subMenu.length - 1; j++) {
-                    for (let k = j + 1; k < subMenu.length; k++) {
-                        for (let l = 0; l < soupMenu.length; l++) {
-                            const temp = mainMenu[i].price + subMenu[j].price + subMenu[k].price + soupMenu[l].price + gohan.price;
-                            if (temp <= budget && temp > bestPrice) {
-                                bestPrice = temp;
-                                best = [mainMenu[i], subMenu[j], subMenu[k], soupMenu[l]];
-                            }
+            // 動的計画法による最適化
+            const items = [];
+            if (gohan.price > 0) items.push({ ...gohan, type: 'rice' });
+            mainMenu.forEach(item => { if (item.price > 0) items.push({ ...item, type: 'main' }); });
+            subMenu.forEach(item => { if (item.price > 0) items.push({ ...item, type: 'side' }); });
+            soupMenu.forEach(item => { if (item.price > 0) items.push({ ...item, type: 'soup' }); });
+
+            const dp = Array(budget + 1).fill(-Infinity);
+            const selected = Array(budget + 1).fill().map(() => []);
+            dp[0] = 0;
+
+            for (const item of items) {
+                for (let w = budget; w >= item.price; w--) {
+                    if (dp[w - item.price] !== -Infinity) {
+                        const newValue = dp[w - item.price] + item.price;
+                        if (newValue > dp[w]) {
+                            dp[w] = newValue;
+                            selected[w] = [...selected[w - item.price], item];
                         }
                     }
                 }
             }
 
+            let bestPrice = 0;
+            let bestItems = [];
+            for (let w = 0; w <= budget; w++) {
+                if (dp[w] > bestPrice) {
+                    bestPrice = dp[w];
+                    bestItems = selected[w];
+                }
+            }
+
             const result = document.getElementById('result');
-            result.innerHTML = `<h2 class="text-lg font-bold mb-2">最適な献立</h2>`;
-            if (gohan.price > 0) result.innerHTML += `<p>${gohan.name} (${gohan.price}円)</p>`;
-            best.forEach(item => {
-                if (item.price > 0) result.innerHTML += `<p>${item.name} (${item.price}円)</p>`;
-            });
-            result.innerHTML += `<p class="font-bold mt-2">合計: ${bestPrice}円</p>`;
+            result.innerHTML = '<h2 class="text-lg font-bold mb-2">最適な献立</h2>';
+            if (bestPrice === 0) {
+                result.innerHTML += '<p class="text-sm text-gray-600">予算内で可能な組み合わせが見つかりませんでした。</p>';
+            } else {
+                bestItems.forEach(item => {
+                    if (item.price > 0) result.innerHTML += `<p>${item.name} (${item.price}円)</p>`;
+                });
+                result.innerHTML += `<p class="font-bold mt-2">合計: ${bestPrice}円</p>`;
+            }
             result.classList.remove('hidden');
         }
     </script>
