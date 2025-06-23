@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生協食堂メニュー最適化</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+        <h1 class="text-2xl font-bold mb-4 text-center">生協食堂メニュー最適化</h1>
+        <div id="app">
+            <div id="input-section">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700">予算を入力 (円)</label>
+                    <input type="number" id="budget" class="mt-1 block w-full p-2 border rounded" placeholder="例: 500">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700">主食を選択</label>
+                    <select id="main-dish" class="mt-1 block w-full p-2 border rounded">
+                        <option value="0">選択してください</option>
+                        <option value="1">丼</option>
+                        <option value="2">カレー</option>
+                        <option value="3">ご飯</option>
+                        <option value="4">麺</option>
+                    </select>
+                </div>
+                <div id="main-dish-details" class="hidden mb-4"></div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700">スープは必要？</label>
+                    <select id="soup" class="mt-1 block w-full p-2 border rounded">
+                        <option value="0">選択してください</option>
+                        <option value="1">はい</option>
+                        <option value="3">いいえ</option>
+                    </select>
+                </div>
+                <div id="soup-details" class="hidden mb-4"></div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700">小鉢は必要？</label>
+                    <select id="side-dish" class="mt-1 block w-full p-2 border rounded">
+                        <option value="0">選択してください</option>
+                        <option value="1">はい</option>
+                        <option value="3">いいえ</option>
+                    </select>
+                </div>
+                <div id="side-dish-details" class="hidden mb-4"></div>
+                <button id="calculate" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">計算する</button>
+            </div>
+            <div id="result" class="hidden mt-4 p-4 bg-gray-50 rounded"></div>
+        </div>
+    </div>
+
+    <script>
+        const prices = {
+            rice: { mini: 99, small: 143, medium: 187, large: 231, big: 319 },
+            curry: { medium: 385, large: 473, mega: 520 },
+            miso: 44
+        };
+
+        let gohan = { name: "NULL", price: 0 };
+        let mainMenu = [{ name: "NULL", price: 0 }];
+        let subMenu = [{ name: "NULL", price: 0 }];
+        let soupMenu = [{ name: "味噌汁", price: prices.miso }];
+
+        document.getElementById('main-dish').addEventListener('change', handleMainDish);
+        document.getElementById('soup').addEventListener('change', handleSoup);
+        document.getElementById('side-dish').addEventListener('change', handleSideDish);
+        document.getElementById('calculate').addEventListener('click', calculate);
+
+        function handleMainDish() {
+            const choice = parseInt(this.value);
+            const details = document.getElementById('main-dish-details');
+            details.innerHTML = '';
+            details.classList.add('hidden');
+
+            if (choice === 1) { // 丼
+                details.innerHTML = `
+                    <label class="block text-sm font-medium text-gray-700">丼の名前</label>
+                    <input type="text" id="donburi-name" class="mt-1 block w-full p-2 border rounded" placeholder="例: 親子丼">
+                    <label class="block text-sm font-medium text-gray-700 mt-2">丼の値段</label>
+                    <input type="number" id="donburi-price" class="mt-1 block w-full p-2 border rounded" placeholder="例: 400">
+                `;
+                details.classList.remove('hidden');
+            } else if (choice === 2) { // カレー
+                details.innerHTML = `
+                    <label class="block text-sm font-medium text-gray-700">カレーのサイズ</label>
+                    <select id="curry-size" class="mt-1 block w-full p-2 border rounded">
+                        <option value="0">選択してください</option>
+                        <option value="1">中 (385円)</option>
+                        <option value="2">大 (473円)</option>
+                        <option value="3">MEGA (520円)</option>
+                    </select>
+                    <label class="block text-sm font-medium text-gray-700 mt-2">カレーの種類を追加？</label>
+                    <select id="curry-add" class="mt-1 block w-full p-2 border rounded">
+                        <option value="0">選択してください</option>
+                        <option value="1">はい</option>
+                        <option value="3">いいえ</option>
+                    </select>
+                    <div id="curry-details" class="hidden mt-2"></div>
+                `;
+                details.classList.remove('hidden');
+                document.getElementById('curry-add').addEventListener('change', handleCurryAdd);
+            } else if (choice === 3) { // ご飯
+                details.innerHTML = `
+                    <label class="block text-sm font-medium text-gray-700">ご飯のサイズ</label>
+                    <select id="rice-size" class="mt-1 block w-full p-2 border rounded">
+                        <option value="0">選択してください</option>
+                        <option value="1">ミニ (99円)</option>
+                        <option value="2">小 (143円)</option>
+                        <option value="3">中 (187円)</option>
+                        <option value="4">大 (231円)</option>
+                        <option value="5">特大 (319円)</option>
+                    </select>
+                    <label class="block text-sm font-medium text-gray-700 mt-2">主菜のメニュー数</label>
+                    <input type="number" id="main-num" class="mt-1 block w-full p-2 border rounded" placeholder="例: 2">
+                    <div id="main-dish-items" class="mt-2"></div>
+                `;
+                details.classList.remove('hidden');
+                document.getElementById('main-num').addEventListener('input', handleMainNum);
+            } else if (choice === 4) { // 麺
+                details.innerHTML = `
+                    <label class="block text-sm font-medium text-gray-700">麺のメニュー数</label>
+                    <input type="number" id="noodle-num" class="mt-1 block w-full p-2 border rounded" placeholder="例: 2">
+                    <div id="noodle-items" class="mt-2"></div>
+                `;
+                details.classList.remove('hidden');
+                document.getElementById('noodle-num').addEventListener('input', handleNoodleNum);
+            }
+        }
+
+        function handleCurryAdd() {
+            const choice = parseInt(this.value);
+            const details = document.getElementById('curry-details');
+            details.innerHTML = '';
+            if (choice === 1) {
+                details.innerHTML = `
+                    <label class="block text-sm font-medium text-gray-700">カレーのメニュー数</label>
+                    <input type="number" id="curry-num" class="mt-1 block w-full p-2 border rounded" placeholder="例: 2">
+                    <div id="curry-items" class="mt-2"></div>
+                `;
+                details.classList.remove('hidden');
+                document.getElementById('curry-num').addEventListener('input', handleCurryNum);
+            } else {
+                details.classList.add('hidden');
+            }
+        }
+
+        function handleCurryNum() {
+            const num = parseInt(this.value) || 0;
+            const items = document.getElementById('curry-items');
+            items.innerHTML = '';
+            for (let i = 1; i <= num; i++) {
+                items.innerHTML += `
+                    <div class="mb-2">
+                        <label class="block text-sm font-medium text-gray-700">${i}つ目のカレーの名前</label>
+                        <input type="text" id="curry-name-${i}" class="mt-1 block w-full p-2 border rounded" placeholder="例: キーマカレー">
+                        <label class="block text-sm font-medium text-gray-700 mt-2">${i}つ目のカレーの値段</label>
+                        <input type="number" id="curry-price-${i}" class="mt-1 block w-full p-2 border rounded" placeholder="例: 450">
+                    </div>
+                `;
+            }
+        }
+
+        function handleMainNum() {
+            const num = parseInt(this.value) || 0;
+            const items = document.getElementById('main-dish-items');
+            items.innerHTML = '';
+            for (let i = 0; i < num; i++) {
+                items.innerHTML += `
+                    <div class="mb-2">
+                        <label class="block text-sm font-medium text-gray-700">${i+1}つ目の主菜の名前</label>
+                        <input type="text" id="main-name-${i}" class="mt-1 block w-full p-2 border rounded" placeholder="例: 唐揚げ">
+                        <label class="block text-sm font-medium text-gray-700 mt-2">${i+1}つ目の主菜の値段</label>
+                        <input type="number" id="main-price-${i}" class="mt-1 block w-full p-2 border rounded" placeholder="例: 200">
+                    </div>
+                `;
+            }
+        }
+
+        function handleNoodleNum() {
+            const num = parseInt(this.value) || 0;
+            const items = document.getElementById('noodle-items');
+            items.innerHTML = '';
+            for (let i = 0; i < num; i++) {
+                items.innerHTML += `
+                    <div class="mb-2">
+                        <label class="block text-sm font-medium text-gray-700">${i+1}つ目の麺の名前</label>
+                        <input type="text" id="noodle-name-${i}" class="mt-1 block w-full p-2 border rounded" placeholder="例: ラーメン">
+                        <label class="block text-sm font-medium text-gray-700 mt-2">${i+1}つ目の麺の値段</label>
+                        <input type="number" id="noodle-price-${i}" class="mt-1 block w-full p-2 border rounded" placeholder="例: 350">
+                    </div>
+                `;
+            }
+        }
+
+        function handleSoup() {
+            const choice = parseInt(this.value);
+            const details = document.getElementById('soup-details');
+            details.innerHTML = '';
+            if (choice === 1) {
+                details.innerHTML = `
+                    <p class="text-sm text-gray-600">※味噌汁 (44円) は既に入力済み</p>
+                    <label class="block text-sm font-medium text-gray-700">追加のスープの名前</label>
+                    <input type="text" id="soup-name" class="mt-1 block w-full p-2 border rounded" placeholder="例: 豚汁">
+                    <label class="block text-sm font-medium text-gray-700 mt-2">追加のスープの値段</label>
+                    <input type="number" id="soup-price" class="mt-1 block w-full p-2 border rounded" placeholder="例: 100">
+                `;
+                details.classList.remove('hidden');
+            } else {
+                details.classList.add('hidden');
+            }
+        }
+
+        function handleSideDish() {
+            const choice = parseInt(this.value);
+            const details = document.getElementById('side-dish-details');
+            details.innerHTML = '';
+            if (choice === 1) {
+                details.innerHTML = `
+                    <label class="block text-sm font-medium text-gray-700">小鉢のメニュー数</label>
+                    <input type="number" id="side-num" class="mt-1 block w-full p-2 border rounded" placeholder="例: 2">
+                    <div id="side-items" class="mt-2"></div>
+                `;
+                details.classList.remove('hidden');
+                document.getElementById('side-num').addEventListener('input', handleSideNum);
+            } else {
+                details.classList.add('hidden');
+            }
+        }
+
+        function handleSideNum() {
+            const num = parseInt(this.value) || 0;
+            const items = document.getElementById('side-items');
+            items.innerHTML = '';
+            for (let i = 1; i <= num; i++) {
+                items.innerHTML += `
+                    <div class="mb-2">
+                        <label class="block text-sm font-medium text-gray-700">${i}つ目の小鉢の名前</label>
+                        <input type="text" id="side-name-${i}" class="mt-1 block w-full p-2 border rounded" placeholder="例: ポテトサラダ">
+                        <label class="block text-sm font-medium text-gray-700 mt-2">${i}つ目の小鉢の値段</label>
+                        <input type="number" id="side-price-${i}" class="mt-1 block w-full p-2 border rounded" placeholder="例: 80">
+                    </div>
+                `;
+            }
+        }
+
+        function calculate() {
+            const budget = parseInt(document.getElementById('budget').value) || 0;
+            const mainDish = parseInt(document.getElementById('main-dish').value);
+            mainMenu = [{ name: "NULL", price: 0 }];
+            subMenu = [{ name: "NULL", price: 0 }];
+            soupMenu = [{ name: "味噌汁", price: prices.miso }];
+            gohan = { name: "NULL", price: 0 };
+
+            if (!budget || !mainDish) {
+                alert('予算と主食を選択してください！');
+                return;
+            }
+
+            if (mainDish === 1) { // 丼
+                const name = document.getElementById('donburi-name').value;
+                const price = parseInt(document.getElementById('donburi-price').value) || 0;
+                if (!name || !price) {
+                    alert('丼の名前と値段を入力してください！');
+                    return;
+                }
+                mainMenu[0] = { name, price };
+            } else if (mainDish === 2) { // カレー
+                const currySize = parseInt(document.getElementById('curry-size').value);
+                if (!currySize) {
+                    alert('カレーのサイズを選択してください！');
+                    return;
+                }
+                if (currySize === 1) mainMenu[0] = { name: "カレー 中", price: prices.curry.medium };
+                else if (currySize === 2) mainMenu[0] = { name: "カレー 大", price: prices.curry.large };
+                else if (currySize === 3) mainMenu[0] = { name: "カレー MEGA", price: prices.curry.mega };
+                if (parseInt(document.getElementById('curry-add').value) === 1) {
+                    const curryNum = parseInt(document.getElementById('curry-num').value) || 0;
+                    for (let i = 1; i <= curryNum; i++) {
+                        const name = document.getElementById(`curry-name-${i}`).value;
+                        const price = parseInt(document.getElementById(`curry-price-${i}`).value) || 0;
+                        if (!name || !price) {
+                            alert(`カレー${i}の名前と値段を入力してください！`);
+                            return;
+                        }
+                        mainMenu[i] = { name, price };
+                    }
+                }
+            } else if (mainDish === 3) { // ご飯
+                const riceSize = parseInt(document.getElementById('rice-size').value);
+                if (!riceSize) {
+                    alert('ご飯のサイズを選択してください！');
+                    return;
+                }
+                if (riceSize === 1) gohan = { name: "ご飯 ミニ", price: prices.rice.mini };
+                else if (riceSize === 2) gohan = { name: "ご飯 小", price: prices.rice.small };
+                else if (riceSize === 3) gohan = { name: "ご飯 中", price: prices.rice.medium };
+                else if (riceSize === 4) gohan = { name: "ご飯 大", price: prices.rice.large };
+                else if (riceSize === 5) gohan = { name: "ご飯 特大", price: prices.rice.big };
+                const mainNum = parseInt(document.getElementById('main-num').value) || 0;
+                for (let i = 0; i < mainNum; i++) {
+                    const name = document.getElementById(`main-name-${i}`).value;
+                    const price = parseInt(document.getElementById(`main-price-${i}`).value) || 0;
+                    if (!name || !price) {
+                        alert(`主菜${i+1}の名前と値段を入力してください！`);
+                        return;
+                    }
+                    mainMenu[i] = { name, price };
+                }
+            } else if (mainDish === 4) { // 麺
+                const noodleNum = parseInt(document.getElementById('noodle-num').value) || 0;
+                for (let i = 0; i < noodleNum; i++) {
+                    const name = document.getElementById(`noodle-name-${i}`).value;
+                    const price = parseInt(document.getElementById(`noodle-price-${i}`).value) || 0;
+                    if (!name || !price) {
+                        alert(`麺${i+1}の名前と値段を入力してください！`);
+                        return;
+                    }
+                    mainMenu[i] = { name, price };
+                }
+            }
+
+            if (parseInt(document.getElementById('soup').value) === 1) {
+                const name = document.getElementById('soup-name').value;
+                const price = parseInt(document.getElementById('soup-price').value) || 0;
+                if (!name || !price) {
+                    alert('スープの名前と値段を入力してください！');
+                    return;
+                }
+                soupMenu[1] = { name, price };
+            }
+
+            if (parseInt(document.getElementById('side-dish').value) === 1) {
+                const sideNum = parseInt(document.getElementById('side-num').value) || 0;
+                for (let i = 1; i <= sideNum; i++) {
+                    const name = document.getElementById(`side-name-${i}`).value;
+                    const price = parseInt(document.getElementById(`side-price-${i}`).value) || 0;
+                    if (!name || !price) {
+                        alert(`小鉢${i}の名前と値段を入力してください！`);
+                        return;
+                    }
+                    subMenu[i] = { name, price };
+                }
+            }
+
+            let bestPrice = -1;
+            let best = [];
+            for (let i = 0; i < mainMenu.length; i++) {
+                for (let j = 0; j < subMenu.length - 1; j++) {
+                    for (let k = j + 1; k < subMenu.length; k++) {
+                        for (let l = 0; l < soupMenu.length; l++) {
+                            const temp = mainMenu[i].price + subMenu[j].price + subMenu[k].price + soupMenu[l].price + gohan.price;
+                            if (temp <= budget && temp > bestPrice) {
+                                bestPrice = temp;
+                                best = [mainMenu[i], subMenu[j], subMenu[k], soupMenu[l]];
+                            }
+                        }
+                    }
+                }
+            }
+
+            const result = document.getElementById('result');
+            result.innerHTML = `<h2 class="text-lg font-bold mb-2">最適な献立</h2>`;
+            if (gohan.price > 0) result.innerHTML += `<p>${gohan.name} (${gohan.price}円)</p>`;
+            best.forEach(item => {
+                if (item.price > 0) result.innerHTML += `<p>${item.name} (${item.price}円)</p>`;
+            });
+            result.innerHTML += `<p class="font-bold mt-2">合計: ${bestPrice}円</p>`;
+            result.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
